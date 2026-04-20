@@ -137,13 +137,23 @@ def procesar():
 
   const merchantBarsEl = document.getElementById('merchantBars');
   if (merchantBarsEl) {
-    merchantBarsEl.innerHTML = merchants.map(([name,v], i) => `
+    const totalMerchantGross = merchants.reduce((s,[,v]) => s + v.gross, 0);
+    const totalMerchantCount = merchants.reduce((s,[,v]) => s + v.count, 0);
+    const rows = merchants.map(([name,v], i) => `
       <div class="bank-row">
-        <div class="bank-name" style="width:140px;font-size:11px;">${name}</div>
+        <div class="bank-name" style="width:130px;font-size:11px;">${name}</div>
         <div class="bank-bar-wrap"><div class="bank-bar-fill" style="width:${(v.gross/maxMerchant*100).toFixed(1)}%;background:${mColors[i % mColors.length]};"></div></div>
         <div class="bank-count">${v.count}</div>
         <div class="bank-amount">${fmt(v.gross)}</div>
       </div>`).join('');
+    const totalRow = `
+      <div class="bank-row" style="border-top:1px solid var(--border);margin-top:6px;padding-top:8px;">
+        <div class="bank-name" style="width:130px;font-size:11px;font-weight:700;color:var(--text);">TOTAL</div>
+        <div class="bank-bar-wrap"><div class="bank-bar-fill" style="width:100%;background:var(--teal);"></div></div>
+        <div class="bank-count" style="font-weight:700;color:var(--text);">${totalMerchantCount}</div>
+        <div class="bank-amount" style="font-weight:700;color:var(--teal);">${fmt(totalMerchantGross)}</div>
+      </div>`;
+    merchantBarsEl.innerHTML = rows + totalRow;
   }
 
   destroyChart('merchantChart');
@@ -160,8 +170,27 @@ def procesar():
         responsive: true, maintainAspectRatio: false, cutout: '55%',
         plugins: {
           legend: { display: true, position: 'right',
-            labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
-          tooltip: { callbacks: { label: ctx => ctx.label + ': ' + fmt(ctx.raw) } }
+            labels: {
+              boxWidth: 10, font: { size: 10 }, padding: 8,
+              generateLabels: chart => {
+                const total = chart.data.datasets[0].data.reduce((a,b) => a+b, 0);
+                return chart.data.labels.map((label, i) => ({
+                  text: label + ' ' + (chart.data.datasets[0].data[i]/total*100).toFixed(1) + '%',
+                  fillStyle: chart.data.datasets[0].backgroundColor[i],
+                  index: i
+                }));
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                const pct = (ctx.raw/total*100).toFixed(1);
+                return ' ' + ctx.label + ': ' + fmt(ctx.raw) + ' (' + pct + '%)';
+              }
+            }
+          }
         }
       }
     });
