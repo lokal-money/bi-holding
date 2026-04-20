@@ -138,20 +138,37 @@ def procesar():
   const merchantBarsEl = document.getElementById('merchantBars');
   if (merchantBarsEl) {
     const totalMerchantGross = merchants.reduce((s,[,v]) => s + v.gross, 0);
+
+    // Pareto: include merchants until cumulative = 80% of total
+    let cumulative = 0;
+    const paretoMerchants = [];
+    for (const [name, v] of merchants) {
+      paretoMerchants.push([name, v]);
+      cumulative += v.gross;
+      if (cumulative / totalMerchantGross >= 0.80) break;
+    }
+    const paretoGross = paretoMerchants.reduce((s,[,v]) => s + v.gross, 0);
+    const paretoCount = paretoMerchants.length;
+
     const header = `
       <div style="display:flex;justify-content:space-between;align-items:center;
-                  margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+                  margin-bottom:4px;padding-bottom:10px;border-bottom:1px solid var(--border);">
         <span style="font-size:10px;font-weight:600;text-transform:uppercase;
                      letter-spacing:0.7px;color:var(--muted);">Total consolidado</span>
         <span style="font-family:'Barlow',sans-serif;font-size:20px;font-weight:800;
                      color:var(--teal);">${fmt(totalMerchantGross)}</span>
+      </div>
+      <div style="font-size:10.5px;color:var(--muted);margin-bottom:10px;">
+        Top ${paretoCount} comercio${paretoCount>1?'s':''} representan el 80% del volumen total
       </div>`;
-    const rows = merchants.map(([name,v], i) => `
+
+    const rows = paretoMerchants.map(([name,v], i) => `
       <div class="bank-row">
         <div class="bank-name" style="width:140px;font-size:11px;">${name}</div>
         <div class="bank-bar-wrap"><div class="bank-bar-fill" style="width:${(v.gross/maxMerchant*100).toFixed(1)}%;background:${mColors[i % mColors.length]};"></div></div>
         <div class="bank-amount">${fmt(v.gross)}</div>
       </div>`).join('');
+
     merchantBarsEl.innerHTML = header + rows;
   }
 
@@ -160,9 +177,42 @@ def procesar():
     charts.merchantChart = new Chart(document.getElementById('merchantChart'), {
       type: 'doughnut',
       data: {
-        labels: merchants.map(([n]) => n),
-        datasets: [{ data: merchants.map(([,v]) => v.gross),
-          backgroundColor: merchants.map((_, i) => mColors[i % mColors.length]),
+        labels: (() => {
+          const total = merchants.reduce((s,[,v]) => s+v.gross, 0);
+          let cum = 0;
+          const labels = [];
+          for (const [name,v] of merchants) {
+            labels.push(name);
+            cum += v.gross;
+            if (cum/total >= 0.80) break;
+          }
+          if (cum < total) labels.push('Otros');
+          return labels;
+        })(),
+        datasets: [{ data: (() => {
+          const total = merchants.reduce((s,[,v]) => s+v.gross, 0);
+          let cum = 0;
+          const vals = [];
+          for (const [,v] of merchants) {
+            vals.push(v.gross);
+            cum += v.gross;
+            if (cum/total >= 0.80) break;
+          }
+          if (cum < total) vals.push(total - cum);
+          return vals;
+        })(),
+          backgroundColor: (() => {
+            const total = merchants.reduce((s,[,v]) => s+v.gross, 0);
+            let cum = 0;
+            const colors = [];
+            for (let i=0; i<merchants.length; i++) {
+              colors.push(mColors[i % mColors.length]);
+              cum += merchants[i][1].gross;
+              if (cum/total >= 0.80) break;
+            }
+            if (cum < total) colors.push('rgba(120,130,150,0.4)');
+            return colors;
+          })(),
           borderWidth: 0, hoverOffset: 6 }]
       },
       options: {
