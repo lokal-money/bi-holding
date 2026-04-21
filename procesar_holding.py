@@ -20,11 +20,17 @@ OUTPUT_FILE  = "index.html"
 TEMPLATE_FILE = "index.template.html"
 TZ_COL       = "UTC-6"   # UTC-6 para consolidado
 
-def classify_fee(fee):
-    if fee <= 2.45: return "Débito"
-    if fee <= 2.84: return "Crédito"
-    if fee <= 2.99: return "Crédito Plus"
-    return "Crédito Internacional"
+def classify_card(row):
+    """Classify card type: Débito or Crédito. AMEX/Internacional added when available."""
+    funding = str(row.get("card_funding_source", "")).strip().upper()
+    if funding == "DEBIT":
+        return "Débito"
+    elif funding == "CREDIT":
+        return "Crédito"
+    else:
+        fee = float(row.get("merchant_fee_percentage", 0))
+        if fee <= 2.45: return "Débito"
+        return "Crédito"
 
 def procesar():
     excel_path = sys.argv[1] if len(sys.argv) > 1 else EXCEL_FILE
@@ -34,19 +40,32 @@ def procesar():
     df = pd.read_excel(excel_path, sheet_name=SHEET_NAME)
 
     col_name = f"transaction_time ({TZ_COL})"
+    from datetime import timedelta
+    import re as _re
+    m = _re.search(r"UTC([+-]\d+)", TZ_COL)
+    utc_offset_hours = int(m.group(1)) if m else 0
+
     df[col_name] = df[col_name].astype(str).str.replace(r"Z+$", "Z", regex=True)
     df["pt_dt"]  = pd.to_datetime(df[col_name], utc=True, errors="coerce")
+    nat_mask = df["pt_dt"].isna()
+    if nat_mask.any():
+        print(f"AVISO: {nat_mask.sum()} filas sin columna de zona horaria — calculando desde transaction_date")
+        fallback = pd.to_datetime(df.loc[nat_mask, "transaction_date"], utc=True, errors="coerce") \
+                   + timedelta(hours=utc_offset_hours)
+        df.loc[nat_mask, "pt_dt"] = fallback
     df = df.dropna(subset=["pt_dt"])
 
     df["date"]       = df["pt_dt"].dt.strftime("%Y-%m-%d")
     df["hour"]       = df["pt_dt"].dt.hour
     df["dow"]        = df["pt_dt"].dt.day_name()
     df["merchant"]   = df["merchant_name"].str.strip()
-    df["card_class"] = df["merchant_fee_percentage"].apply(classify_fee)
+    df["card_class"] = df.apply(classify_card, axis=1)
 
     cols = ["date","hour","dow","transaction_status","transaction_amount",
             "total_fee_amount","net_amount_to_merchant","card_type",
-            "issuing_bank","merchant_fee_percentage","card_class","merchant"]
+            "issuing_bank","merchant_fee_percentage","card_class","merchant",
+            "card_entry_mode","salesperson_name","terminal_serial_number"]
+    cols = [c for c in cols if c in df.columns]
 
     records   = df[cols].to_dict(orient="records")
     confirmed = [r for r in records if r["transaction_status"] == "CONFIRMED"]
@@ -162,6 +181,9 @@ def procesar():
         Top ${paretoCount} comercio${paretoCount>1?'s':''} representan el 80% del volumen total
       </div>`;
 
+    const paretoGrossSum = paretoMerchants.reduce((s,[,v]) => s + v.gross, 0);
+    const othersGross = totalMerchantGross - paretoGrossSum;
+
     const rows = paretoMerchants.map(([name,v], i) => `
       <div class="bank-row">
         <div class="bank-name" style="width:140px;font-size:11px;">${name}</div>
@@ -169,7 +191,14 @@ def procesar():
         <div class="bank-amount">${fmt(v.gross)}</div>
       </div>`).join('');
 
-    merchantBarsEl.innerHTML = header + rows;
+    const othersRow = othersGross > 0 ? `
+      <div class="bank-row" style="opacity:0.6;">
+        <div class="bank-name" style="width:140px;font-size:11px;font-style:italic;">Otros</div>
+        <div class="bank-bar-wrap"><div class="bank-bar-fill" style="width:${(othersGross/maxMerchant*100).toFixed(1)}%;background:rgba(120,130,150,0.5);"></div></div>
+        <div class="bank-amount">${fmt(othersGross)}</div>
+      </div>` : '';
+
+    merchantBarsEl.innerHTML = header + rows + othersRow;
   }
 
   destroyChart('merchantChart');
