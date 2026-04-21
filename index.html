@@ -381,6 +381,29 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.7);cursor:po
   75%{transform:translateX(6px);}
 }
 
+
+/* ── TERMINAL SELECTOR ── */
+.terminal-wrap {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 0;
+}
+.terminal-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.7px; color: var(--muted); white-space: nowrap;
+}
+.terminal-select {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px; color: var(--text);
+  outline: none; cursor: pointer;
+  transition: border-color .2s;
+  max-width: 220px;
+}
+.terminal-select:focus { border-color: rgba(0,194,168,0.4); }
+
 </style>
 </head>
 <body>
@@ -476,28 +499,57 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.7);cursor:po
 
   <!-- MI NEGOCIO -->
   <section class="section">
-    <div class="section-header">
-      <div class="section-icon">📊</div>
-      <div class="section-title">Mi Negocio</div>
-      <div class="section-sub" id="negocioSub">Análisis del período seleccionado</div>
+    <div class="section-header" style="flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;flex:1;">
+        <div class="section-icon">📊</div>
+        <div>
+          <div class="section-title">Mi Negocio</div>
+          <div class="section-sub" id="negocioSub">Análisis del período seleccionado</div>
+        </div>
+      </div>
+      <div class="terminal-wrap">
+        <span class="terminal-label">Terminal</span>
+        <select class="terminal-select" id="terminalSelect" onchange="applyFilter()">
+          <option value="">Todas</option>
+        </select>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:16px;">
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div class="card-title" style="margin-bottom:0;">Tendencia de ventas (MXN)</div>
-          <div style="display:flex;gap:5px;">
-            <button class="grp-btn active" onclick="setGrouping('day',this)">Día</button>
-            <button class="grp-btn" onclick="setGrouping('week',this)">Semana</button>
-            <button class="grp-btn" onclick="setGrouping('month',this)">Mes</button>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card" style="flex:1;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="card-title" style="margin-bottom:0;">Tendencia de ventas (MXN)</div>
+            <div style="display:flex;gap:5px;">
+              <button class="grp-btn active" onclick="setGrouping('day',this)">Día</button>
+              <button class="grp-btn" onclick="setGrouping('week',this)">Semana</button>
+              <button class="grp-btn" onclick="setGrouping('month',this)">Mes</button>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:165px;"><canvas id="dailyChart"></canvas></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div class="stat-card" style="padding:12px 14px;">
+            <div class="stat-label" style="font-size:10px;">Ventas confirmadas</div>
+            <div class="stat-value" id="sConfirmed" style="color:var(--teal);font-size:22px;">—</div>
+            <div class="stat-tag tag-green">✓ Confirmadas</div>
+          </div>
+          <div class="stat-card" style="padding:12px 14px;">
+            <div class="stat-label" style="font-size:10px;">Cancelaciones</div>
+            <div class="stat-value" id="sCancelled" style="color:var(--red);font-size:22px;">—</div>
+            <div class="stat-tag tag-red" id="sCancelledPct">—</div>
+          </div>
+          <div class="stat-card" style="padding:12px 14px;">
+            <div class="stat-label" style="font-size:10px;">Devoluciones</div>
+            <div class="stat-value" id="sRefunded" style="color:var(--gold);font-size:22px;">—</div>
+            <div class="stat-tag tag-gold" id="sRefundedPct">—</div>
           </div>
         </div>
-        <div class="chart-wrap" style="height:175px;"><canvas id="dailyChart"></canvas></div>
       </div>
       <div class="card">
         <div class="card-title">Movimiento semanal</div>
         <div class="mov-pair">
           <div class="mov-item best"><div class="mov-badge best">Mayor</div><div class="mov-name" id="bestDay">—</div><div class="mov-amount" id="bestDayAmt">—</div></div>
-          <div class="mov-item worst"><div class="mov-badge worst">Menor</div><div class="mov-name" id="worstDay">—</div><div class="mov-amount" id="worstDayAmt">—</div></div>
+          <div class="mov-item worst"><div class="mov-badge worst">Menor</div><div class="mov-name" id="worstDay">—</div><div class="mov-amount" id="worstHourAmt" style="display:none">—</div><div class="mov-amount" id="worstDayAmt">—</div></div>
         </div>
         <div style="margin-top:12px;"><div class="chart-wrap" style="height:76px;"><canvas id="dowChart"></canvas></div></div>
       </div>
@@ -505,16 +557,19 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.7);cursor:po
         <div class="card-title">Movimiento por hora</div>
         <div class="mov-pair">
           <div class="mov-item best"><div class="mov-badge best">Mayor</div><div class="mov-name" id="bestHour">—</div><div class="mov-amount" id="bestHourAmt">—</div></div>
-          <div class="mov-item worst"><div class="mov-badge worst">Menor</div><div class="mov-name" id="worstHour">—</div><div class="mov-amount" id="worstHourAmt">—</div></div>
+          <div class="mov-item worst"><div class="mov-badge worst">Menor</div><div class="mov-name" id="worstHour">—</div><div class="mov-amount" id="worstHourAmt2">—</div></div>
         </div>
         <div style="margin-top:12px;"><div class="chart-wrap" style="height:76px;"><canvas id="hourChart"></canvas></div></div>
       </div>
     </div>
-    <div class="grid-4">
-      <div class="stat-card"><div class="stat-label">Ventas confirmadas</div><div class="stat-value" id="sConfirmed" style="color:var(--teal)">—</div><div class="stat-tag tag-green">✓ Confirmadas</div></div>
-      <div class="stat-card"><div class="stat-label">Cancelaciones</div><div class="stat-value" id="sCancelled" style="color:var(--red)">—</div><div class="stat-tag tag-red" id="sCancelledPct">—</div></div>
-      <div class="stat-card"><div class="stat-label">Devoluciones</div><div class="stat-value" id="sRefunded" style="color:var(--gold)">—</div><div class="stat-tag tag-gold" id="sRefundedPct">—</div></div>
-      <div class="stat-card"><div class="stat-label">Comisión promedio</div><div class="stat-value" id="sAvgFee">—</div><div class="stat-tag tag-green">Tasa efectiva</div></div>
+
+    <!-- Terminal bar chart -->
+    <div class="card" style="margin-bottom:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:0;">Ventas por terminal</div>
+        <div style="font-size:11px;color:var(--muted);" id="terminalPeriodLabel"></div>
+      </div>
+      <div id="terminalBars"></div>
     </div>
   </section>
 
@@ -775,9 +830,15 @@ function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts
 
 // ── FILTER ────────────────────────────────────────────────────
 function getFiltered() {
-  const from = document.getElementById('dateFrom').value;
-  const to   = document.getElementById('dateTo').value;
-  return RAW.filter(r => r.date && typeof r.date === 'string' && r.date >= from && r.date <= to);
+  const from     = document.getElementById('dateFrom').value;
+  const to       = document.getElementById('dateTo').value;
+  const terminal = (document.getElementById('terminalSelect') || {}).value || '';
+  return RAW.filter(r => {
+    if (!r.date || typeof r.date !== 'string') return false;
+    if (r.date < from || r.date > to) return false;
+    if (terminal && r.terminal_serial_number !== terminal) return false;
+    return true;
+  });
 }
 
 // ── QUICK BUTTONS ─────────────────────────────────────────────
@@ -933,6 +994,17 @@ function render() {
   noDataEl.classList.remove('show');
 
   const confirmed = data.filter(r => r.transaction_status === 'CONFIRMED');
+
+  // ── POPULATE TERMINAL SELECTOR ──────────────────────────────
+  const terminalEl = document.getElementById('terminalSelect');
+  if (terminalEl) {
+    const currentVal = terminalEl.value;
+    const allTerminals = [...new Set(
+      RAW.map(r => r.terminal_serial_number).filter(t => t && t !== 'nan' && t !== 'None' && t !== 'undefined')
+    )].sort();
+    terminalEl.innerHTML = '<option value="">Todas</option>' +
+      allTerminals.map(t => `<option value="${t}"${t === currentVal ? ' selected' : ''}>${t}</option>`).join('');
+  }
   const cancelled = data.filter(r => r.transaction_status === 'CANCELLED');
   const refunded  = data.filter(r => r.transaction_status === 'REFUNDED');
 
@@ -964,7 +1036,6 @@ function render() {
   document.getElementById('sCancelledPct').textContent = pct(cancelled.length,total)+' del total';
   document.getElementById('sRefunded').textContent  = refunded.length.toLocaleString('es-MX');
   document.getElementById('sRefundedPct').textContent = pct(refunded.length,total)+' del total';
-  document.getElementById('sAvgFee').textContent    = avgFee.toFixed(2)+'%';
 
   // Events
   document.getElementById('evCancelled').textContent = cancelled.length.toLocaleString('es-MX');
