@@ -65,8 +65,10 @@ tz_delta = timedelta(hours=utc_offset_hours)
 
 # ── DATE RANGE ────────────────────────────────────────────────────
 now_local = datetime.now(timezone.utc) + tz_delta
-date_to   = now_local.strftime("%Y-%m-%d")
-date_from = (now_local - timedelta(days=days_back)).strftime("%Y-%m-%d")
+# Compago API tiene un desfase de +1 día en el filtro de fechas
+# Para obtener datos del día X hay que pedir el día X+1
+date_to   = (now_local + timedelta(days=1)).strftime("%Y-%m-%d")
+date_from = (now_local - timedelta(days=days_back - 1)).strftime("%Y-%m-%d")
 
 print(f"Modo: {'HOLDING (todos los comercios)' if is_holding else merchant}")
 print(f"Período: {date_from} → {date_to} | Zona: {tz_col}")
@@ -159,8 +161,10 @@ def transform(raw):
         network = card.get("networkType", "")
         fee_pct = disb.get("finalFeePercentageForMerchant", 0)
 
+        salesperson = r.get("salesperson") or {}
         rec = {
             "date":                    dt_local.strftime("%Y-%m-%d"),
+            "time":                    dt_local.strftime("%H:%M:%S"),
             "hour":                    dt_local.hour,
             "dow":                     dt_local.strftime("%A"),
             "transaction_status":      r.get("status", ""),
@@ -173,6 +177,8 @@ def transform(raw):
             "card_class":              classify_card(funding, network, fee_pct),
             "card_entry_mode":         card.get("entryMode", "") or "",
             "terminal_serial_number":  term.get("serialNumber", "") or "",
+            "salesperson_username":    salesperson.get("username", "") or "",
+            "salesperson_name":        salesperson.get("name", "") or "",
         }
         if is_holding:
             rec["merchant"] = org_name.strip()
