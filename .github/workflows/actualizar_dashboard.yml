@@ -2,7 +2,7 @@ name: Actualizar Dashboard
 
 on:
   schedule:
-    - cron: "0 * * * *"   # Cada hora
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -28,8 +28,8 @@ jobs:
 
       - name: Generar dashboard consolidado desde Compago API
         env:
-          COMPAGO_API_KEY: ${{{{ secrets.COMPAGO_API_KEY }}}}
-        run: python fetch_compago.py "ALL" "UTC-6" "${{{{ secrets.DASHBOARD_PASSWORD }}}}" 365
+          COMPAGO_API_KEY: ${{ secrets.COMPAGO_API_KEY }}
+        run: python fetch_compago.py "ALL" "UTC-6" "${{ secrets.DASHBOARD_PASSWORD }}" 365
 
       - name: Commit index.html actualizado
         run: |
