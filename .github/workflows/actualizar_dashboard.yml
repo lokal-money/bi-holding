@@ -30,8 +30,8 @@ jobs:
       - name: Generar dashboard consolidado desde Compago API
         timeout-minutes: 15
         env:
-          COMPAGO_API_KEY: ${{{{ secrets.COMPAGO_API_KEY }}}}
-        run: python fetch_compago.py "ALL" "UTC-6" "${{{{ secrets.DASHBOARD_PASSWORD }}}}" 365
+          COMPAGO_API_KEY: ${{ secrets.COMPAGO_API_KEY }}
+        run: python fetch_compago.py "ALL" "UTC-6" "${{ secrets.DASHBOARD_PASSWORD }}" 365
 
       - name: Commit index.html actualizado
         run: |
