@@ -30,13 +30,13 @@ jobs:
       - name: Generar dashboard consolidado desde Compago API
         timeout-minutes: 15
         env:
-          COMPAGO_API_KEY: ${{ secrets.COMPAGO_API_KEY }}
-        run: python fetch_compago.py "ALL" "UTC-6" "${{ secrets.DASHBOARD_PASSWORD }}" 365
+          COMPAGO_API_KEY: ${{{{ secrets.COMPAGO_API_KEY }}}}
+        run: python fetch_compago.py "ALL" "UTC-6" "${{{{ secrets.DASHBOARD_PASSWORD }}}}"
 
-      - name: Commit index.html actualizado
+      - name: Commit actualizado
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index.html
+          git add index.html transactions.db
           git diff --cached --quiet || git commit -m "Holding actualizado $(date +'%Y-%m-%d %H:%M UTC')"
           git push
